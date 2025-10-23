@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Flappy Bird Responsive</title>
+  <link rel="icon" type="image/png" href="logo.png" />
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #70c5ce;
+      overflow: hidden;
+      height: 100%;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: linear-gradient(#70c5ce, #fff);
+      border: 2px solid #333;
+      border-radius: 6px;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// === SESUAIKAN UKURAN CANVAS DENGAN LAYAR ===
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// === BURUNG ===
+const birdImg = new Image();
+birdImg.src = 'bird-no.png'; // ganti dengan logo burung kamu
+let birdLoaded = false;
+birdImg.onload = () => birdLoaded = true;
+
+let bird = {
+  x: canvas.width * 0.25,
+  y: canvas.height / 2,
+  // ✅ Ukuran burung diperbesar agar proporsional di layar besar & mobile
+  size: Math.min(canvas.width, canvas.height) * 0.08, 
+  gravity: 0.5,
+  lift: -8,
+  velocity: 0
+};
+
+// === PIPA ===
+let pipes = [];
+let frame = 0;
+let score = 0;
+let gameOver = false;
+let nextPipeDistance = 0;
+let distanceSinceLastPipe = 0;
+
+// === KONTROL ===
+function flap() {
+  if (gameOver) resetGame();
+  else bird.velocity = bird.lift;
+}
+
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'Enter') flap();
+});
+canvas.addEventListener('click', flap);
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  flap();
+}, {passive:false});
+
+// === BUAT PIPA BARU ===
+function spawnPipe() {
+  // ✅ Jarak antar pipa lebih seimbang dan tidak terlalu jauh di awal game
+  const gap = Math.max(canvas.height * 0.22, 120 - score * 0.4);
+  const top = Math.random() * (canvas.height - gap - 80) + 40;
+
+  pipes.push({
+    x: canvas.width,
+    top: top,
+    bottom: top + gap,
+    width: Math.min(canvas.width, canvas.height) * 0.12,
+    passed: false
+  });
+}
+
+function setNextPipeDistance() {
+  // ✅ Jarak antar pipa lebih natural dan adaptif
+  nextPipeDistance = canvas.width * (0.28 + Math.random() * 0.1);
+}
+
+// === UPDATE GAME ===
+function update() {
+  if (gameOver) return;
+
+  const W = canvas.width;
+  const H = canvas.height;
+
+  // Fisika burung
+  bird.velocity += bird.gravity;
+  bird.y += bird.velocity;
+
+  // Batas atas & bawah
+  if (bird.y + bird.size > H) {
+    bird.y = H - bird.size;
+    gameOver = true;
+  }
+  if (bird.y < 0) {
+    bird.y = 0;
+    bird.velocity = 0;
+  }
+
+  // Kecepatan dasar + peningkatan seiring skor
+  let speed = 2.2 + Math.min(10, score / 5);
+  pipes.forEach(p => p.x -= speed);
+  distanceSinceLastPipe += speed;
+
+  if (nextPipeDistance === 0) setNextPipeDistance();
+  if (distanceSinceLastPipe >= nextPipeDistance) {
+    spawnPipe();
+    distanceSinceLastPipe = 0;
+    setNextPipeDistance();
+  }
+
+  // Hapus pipa keluar layar
+  pipes = pipes.filter(p => p.x + p.width > -50);
+
+  // Deteksi tabrakan
+  pipes.forEach(p => {
+    const bx = bird.x + bird.size * 0.1;
+    const by = bird.y + bird.size * 0.1;
+    const bw = bird.size * 0.8;
+    const bh = bird.size * 0.8;
+
+    if (
+      bx < p.x + p.width &&
+      bx + bw > p.x &&
+      (by < p.top || by + bh > p.bottom)
+    ) {
+      gameOver = true;
+    }
+
+    if (!p.passed && p.x + p.width < bird.x) {
+      score++;
+      p.passed = true;
+    }
+  });
+}
+
+// === GAMBAR GAME ===
+function render() {
+  const W = canvas.width;
+  const H = canvas.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#70c5ce';
+  ctx.fillRect(0, 0, W, H);
+
+  // Pipa
+  ctx.fillStyle = '#228B22';
+  pipes.forEach(p => {
+    ctx.fillRect(p.x, 0, p.width, p.top);
+    ctx.fillRect(p.x, p.bottom, p.width, H - p.bottom);
+  });
+
+  // Burung
+  if (birdLoaded) {
+    ctx.drawImage(birdImg, bird.x, bird.y, bird.size, bird.size);
+  } else {
+    ctx.fillStyle = 'yellow';
+    ctx.beginPath();
+    ctx.arc(bird.x + bird.size / 2, bird.y + bird.size / 2, bird.size / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Skor
+  ctx.fillStyle = 'white';
+  ctx.font = `${Math.min(W, H) * 0.05}px Arial Black`;
+  ctx.textAlign = 'left';
+  ctx.fillText(`Score: ${score}`, 20, 50);
+
+  // Overlay Game Over
+  if (gameOver) {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'yellow';
+    ctx.font = `${Math.min(W, H) * 0.08}px Arial Black`;
+    ctx.fillText('GAME OVER', W / 2, H / 2 - H * 0.05);
+    ctx.font = `${Math.min(W, H) * 0.04}px Arial`;
+    ctx.fillText('Tap / Space / Enter to Restart', W / 2, H / 2 + H * 0.07);
+  }
+}
+
+// === RESET GAME ===
+function resetGame() {
+  bird.x = canvas.width * 0.25;
+  bird.y = canvas.height / 2;
+  bird.size = Math.min(canvas.width, canvas.height) * 0.08;
+  bird.velocity = 0;
+  pipes = [];
+  score = 0;
+  gameOver = false;
+  nextPipeDistance = 0;
+  distanceSinceLastPipe = canvas.width * 0.15;
+  spawnPipe();
+  setNextPipeDistance();
+}
+
+// === LOOP GAME ===
+function gameLoop() {
+  update();
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// Mulai permainan
+resetGame();
+gameLoop();
+</script>
+</body>
+</html>
