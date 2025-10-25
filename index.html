@@ -12,6 +12,7 @@
       overflow: hidden;
       height: 100%;
       touch-action: none;
+      font-family: Arial, sans-serif;
     }
     canvas {
       display: block;
@@ -20,149 +21,209 @@
       border-radius: 6px;
       width: 100vw;
       height: 100vh;
-    }  
+    }
+    #startScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      text-align: center;
+    }
+    #startScreen h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      color: #00bfff;
+    }
+    #startButton {
+      background-color: #00bfff;
+      border: none;
+      padding: 15px 40px;
+      font-size: 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #000;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    #startButton:hover {
+      background-color: #34d399;
+      transform: scale(1.05);
+    }
   </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
-<script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+  <div id="startScreen">
+    <h1>Flappy Bird Clone</h1>
+    <button id="startButton">Mulai Game</button>
+  </div>
 
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-resizeCanvas();
-window.addEventListener("resize", resizeCanvas);
+  <canvas id="gameCanvas"></canvas>
 
-// === ASSET ===
-const birdImg = new Image();
-birdImg.src = "bird-no.png"; // karakter burung kamu
+  <script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+  const startScreen = document.getElementById("startScreen");
+  const startButton = document.getElementById("startButton");
 
-const bgMusic = new Audio("backsound.mp3");
-bgMusic.loop = true;
-bgMusic.volume = 0.3;
-bgMusic.play().catch(() => {
-  document.body.addEventListener("click", () => bgMusic.play(), { once: true });
-});
-
-let bird = {
-  x: 80,
-  y: canvas.height / 2,
-  width: 48, // sebelumnya terlalu kecil
-  height: 48,
-  gravity: 0.4,
-  lift: -8,
-  velocity: 0
-};
-
-let pipes = [];
-let frame = 0;
-let score = 0;
-let gameOver = false;
-let pipeGap = Math.min(180, canvas.height * 0.25);
-let pipeWidth = Math.max(60, canvas.width * 0.07);
-let pipeSpacing = Math.max(280, canvas.width * 0.35);
-let speed = 3;
-
-function drawBird() {
-  ctx.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
-}
-
-function drawPipe(pipe) {
-  ctx.fillStyle = "#34d399";
-  ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
-  ctx.fillRect(pipe.x, pipe.bottom, pipeWidth, canvas.height - pipe.bottom);
-}
-
-function drawScore() {
-  ctx.fillStyle = "white";
-  ctx.font = "bold 32px Arial";
-  ctx.fillText(`Score: ${score}`, 20, 50);
-}
-
-function updateBird() {
-  bird.velocity += bird.gravity;
-  bird.y += bird.velocity;
-
-  if (bird.y + bird.height > canvas.height) {
-    bird.y = canvas.height - bird.height;
-    bird.velocity = 0;
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
   }
-  if (bird.y < 0) {
-    bird.y = 0;
-    bird.velocity = 0;
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+
+  // === ASSET ===
+  const birdImg = new Image();
+  birdImg.src = "bird-no.png"; // karakter burung
+
+  const bgMusic = new Audio("backsound.mp3");
+  bgMusic.loop = true;
+  bgMusic.volume = 0.3;
+
+  let bird, pipes, frame, score, gameOver, pipeGap, pipeWidth, pipeSpacing, speed;
+  let gameStarted = false;
+
+  function initGame() {
+    bird = {
+      x: 80,
+      y: canvas.height / 2,
+      width: 48,
+      height: 48,
+      gravity: 0.4,
+      lift: -8,
+      velocity: 0
+    };
+    pipes = [];
+    frame = 0;
+    score = 0;
+    gameOver = false;
+    pipeGap = Math.min(180, canvas.height * 0.25);
+    pipeWidth = Math.max(60, canvas.width * 0.07);
+    pipeSpacing = Math.max(280, canvas.width * 0.35);
+    speed = 3;
   }
-}
 
-function createPipe() {
-  const top = Math.random() * (canvas.height / 2);
-  const bottom = top + pipeGap;
-  pipes.push({ x: canvas.width, top: top, bottom: bottom });
-}
+  function drawBird() {
+    ctx.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
+  }
 
-function updatePipes() {
-  for (let i = pipes.length - 1; i >= 0; i--) {
-    const p = pipes[i];
-    p.x -= speed;
+  function drawPipe(pipe) {
+    ctx.fillStyle = "#34d399";
+    ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
+    ctx.fillRect(pipe.x, pipe.bottom, pipeWidth, canvas.height - pipe.bottom);
+  }
 
-    if (p.x + pipeWidth < 0) {
-      pipes.splice(i, 1);
-      score++;
-      if (score % 5 === 0 && speed < 10) speed += 0.3;
+  function drawScore() {
+    ctx.fillStyle = "white";
+    ctx.font = "bold 32px Arial";
+    ctx.fillText(`Score: ${score}`, 20, 50);
+  }
+
+  function updateBird() {
+    bird.velocity += bird.gravity;
+    bird.y += bird.velocity;
+
+    if (bird.y + bird.height > canvas.height) {
+      bird.y = canvas.height - bird.height;
+      bird.velocity = 0;
     }
-
-    // === COLLISION DETECTION (dengan toleransi) ===
-    const hitX = bird.x + bird.width - 10 > p.x && bird.x + 10 < p.x + pipeWidth;
-    const hitY = bird.y + 10 < p.top || bird.y + bird.height - 10 > p.bottom;
-    if (hitX && hitY) {
-      gameOver = true;
+    if (bird.y < 0) {
+      bird.y = 0;
+      bird.velocity = 0;
     }
   }
-}
 
-function drawGameOver() {
-  ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "white";
-  ctx.font = "bold 48px Arial";
-  ctx.fillText("GAME OVER", canvas.width / 2 - 150, canvas.height / 2);
-  ctx.font = "24px Arial";
-  ctx.fillText("Tap to Restart", canvas.width / 2 - 80, canvas.height / 2 + 50);
-}
-
-function loop() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  updateBird();
-  updatePipes();
-
-  if (frame % 90 === 0) createPipe();
-
-  pipes.forEach(drawPipe);
-  drawBird();
-  drawScore();
-
-  if (gameOver) {
-    drawGameOver();
-    return;
+  function createPipe() {
+    const top = Math.random() * (canvas.height / 2);
+    const bottom = top + pipeGap;
+    pipes.push({ x: canvas.width, top: top, bottom: bottom });
   }
 
-  frame++;
-  requestAnimationFrame(loop);
-}
+  function updatePipes() {
+    for (let i = pipes.length - 1; i >= 0; i--) {
+      const p = pipes[i];
+      p.x -= speed;
 
-document.addEventListener("keydown", (e) => {
-  if (e.code === "Space") bird.velocity = bird.lift;
-  if (gameOver && e.code === "Space") location.reload();
-});
+      if (p.x + pipeWidth < 0) {
+        pipes.splice(i, 1);
+        score++;
+        if (score % 5 === 0 && speed < 10) speed += 0.3;
+      }
 
-document.addEventListener("touchstart", () => {
-  if (gameOver) location.reload();
-  else bird.velocity = bird.lift;
-});
+      const hitX = bird.x + bird.width - 10 > p.x && bird.x + 10 < p.x + pipeWidth;
+      const hitY = bird.y + 10 < p.top || bird.y + bird.height - 10 > p.bottom;
+      if (hitX && hitY) {
+        gameOver = true;
+      }
+    }
+  }
 
-loop();
-</script>
+  function drawGameOver() {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "white";
+    ctx.font = "bold 48px Arial";
+    ctx.fillText("GAME OVER", canvas.width / 2 - 150, canvas.height / 2);
+    ctx.font = "24px Arial";
+    ctx.fillText("Tap atau tekan Spasi untuk Restart", canvas.width / 2 - 200, canvas.height / 2 + 50);
+  }
+
+  function loop() {
+    if (!gameStarted) return; // jangan jalankan loop sebelum start
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    updateBird();
+    updatePipes();
+
+    if (frame % 90 === 0) createPipe();
+
+    pipes.forEach(drawPipe);
+    drawBird();
+    drawScore();
+
+    if (gameOver) {
+      drawGameOver();
+      return;
+    }
+
+    frame++;
+    requestAnimationFrame(loop);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (!gameStarted) return;
+    if (e.code === "Space") bird.velocity = bird.lift;
+    if (gameOver && e.code === "Space") {
+      initGame();
+      loop();
+    }
+  });
+
+  document.addEventListener("touchstart", () => {
+    if (!gameStarted) return;
+    if (gameOver) {
+      initGame();
+      loop();
+    } else {
+      bird.velocity = bird.lift;
+    }
+  });
+
+  // === Tombol Mulai ===
+  startButton.addEventListener("click", () => {
+    startScreen.style.display = "none";
+    gameStarted = true;
+    bgMusic.play().catch(() => {});
+    initGame();
+    loop();
+  });
+  </script>
 </body>
 </html>
